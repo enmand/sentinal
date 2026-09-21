@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use keyring::Entry;
 use kunobi_jev::reqwest::header::ACCEPT;
-use octocrab::{Octocrab, auth::OAuth, models::pulls};
+use octocrab::{
+    Octocrab,
+    auth::OAuth,
+    models::{pulls, repos::DiffEntry},
+};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use serde_env::from_env_with_prefix;
@@ -52,6 +56,8 @@ pub(crate) enum GithubClientError {
     #[error("Unable to serialize auth cache: {0}")]
     CacheSerializeError(#[from] serde_json::Error),
 }
+
+pub type PullRequestDetails = (pulls::PullRequest, Vec<DiffEntry>);
 
 impl GithubClient {
     pub fn new() -> Result<Self, GithubClientError> {
@@ -109,16 +115,35 @@ impl GithubClient {
     pub(crate) async fn fetch_pr(
         &self,
         pr: &PullRequest,
-    ) -> Result<pulls::PullRequest, GithubClientError> {
-        // Implement the logic to fetch the pull request details from Github API
-        // For now, we will just return a placeholder string
-        self.octocrab
+    ) -> Result<PullRequestDetails, GithubClientError> {
+        let pr_number = pr.pr_number as u64;
+
+        let client = self
+            .octocrab
             .as_ref()
-            .ok_or(GithubClientError::MissingOctocrab)?
+            .ok_or(GithubClientError::MissingOctocrab)?;
+
+        let pr_details = client
             .pulls(pr.owner.clone(), pr.repo.clone())
-            .get(pr.pr_number as u64)
+            .get(pr_number)
             .await
-            .map_err(GithubClientError::OctocrabError)
+            .map_err(GithubClientError::OctocrabError)?;
+
+        let files = client
+            .pulls(pr.owner.clone(), pr.repo.clone())
+            .list_files(pr_number)
+            .await
+            .map_err(GithubClientError::OctocrabError)?;
+        files.clone().into_iter().for_each(|file| {
+            clout::debug!(
+                "Changed file: {} ({} lines added, {} lines removed)",
+                file.filename,
+                file.additions,
+                file.deletions
+            );
+        });
+
+        Ok((pr_details, files.into_iter().collect()))
     }
 }
 
@@ -148,9 +173,7 @@ impl CachedAuth {
                 .as_ref()
                 .map(|rt| rt.expose_secret().to_owned()),
             expires_at: auth.expires_in.map(|secs| now + secs as i64),
-            refresh_token_expires_at: auth
-                .refresh_token_expires_in
-                .map(|secs| now + secs as i64),
+            refresh_token_expires_at: auth.refresh_token_expires_in.map(|secs| now + secs as i64),
         }
     }
 
@@ -210,10 +233,7 @@ mod tests {
         assert_eq!(back.access_token.expose_secret(), "access-token");
         assert_eq!(back.token_type, "bearer");
         assert_eq!(back.scope, vec!["repo", "read:org"]);
-        assert_eq!(
-            back.refresh_token.unwrap().expose_secret(),
-            "refresh"
-        );
+        assert_eq!(back.refresh_token.unwrap().expose_secret(), "refresh");
         assert!((3599..=3600).contains(&back.expires_in.unwrap()));
         assert!((7199..=7200).contains(&back.refresh_token_expires_in.unwrap()));
     }
