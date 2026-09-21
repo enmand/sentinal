@@ -3,10 +3,9 @@ use clout::{debug, warn};
 use std::path::Path;
 
 use crate::{
-    assess::{self, PullRequestAssessment},
-    assessors,
+    assessors::{self, Assessment, Assessor, PullRequestAssessment},
     github::GithubClient,
-    targets::parse_target,
+    targets::{Target, parse_target},
 };
 
 pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
@@ -14,22 +13,34 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
 
     debug!("Assessing target: {}", target.get_identifier());
 
-    let mut gh = GithubClient::new()?;
-    gh.auth().await?;
-
     let jev = assessors::jev::Jev::new()?;
 
     match target {
-        crate::targets::Target::PullRequest(pr_target) => {
+        Target::PullRequest(pr_target) => {
+            let mut gh = GithubClient::new()?;
+            gh.auth().await?;
             let pr_details = gh.fetch_pr(&pr_target).await?;
-            assess::pull_request(
-                jev,
-                PullRequestAssessment::Github((pr_details, pr_target).into()),
-            )
+            jev.assess(&Assessment::PullRequest(PullRequestAssessment::Github(
+                (pr_details, pr_target).into(),
+            )))
             .await?;
         }
-        _ => {
-            warn!("Target is not a pull request, skipping GitHub fetch");
+        Target::Path(path_target) => {
+            if path_target.is_file {
+                let content = tokio::fs::read_to_string(&path_target.path).await?;
+                jev.assess(&Assessment::Diff(content)).await?;
+            }
+
+            warn!(
+                "Path target assessment is not implemented yet for a directory: {}",
+                path_target.path.display()
+            );
+        }
+        Target::Other(other_target) => {
+            warn!(
+                "Other target assessment is not implemented yet: {}",
+                other_target.identifier
+            );
         }
     }
 

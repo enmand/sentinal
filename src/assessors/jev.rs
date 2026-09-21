@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_env::from_env_with_prefix;
 use thiserror::Error;
 
-use crate::{assess::PullRequestAssessment, assessors::Assessor};
+use crate::assessors::{Assessment, Assessor};
 
 pub(crate) struct Jev {
     client: kunobi_jev::Client,
@@ -52,10 +52,7 @@ impl Jev {
 }
 
 impl Assessor for Jev {
-    async fn assess(
-        &self,
-        pr: &PullRequestAssessment,
-    ) -> Result<(), crate::assessors::AssessmentError> {
+    async fn assess(&self, pr: &Assessment) -> Result<(), crate::assessors::AssessmentError> {
         let mut questions = Questions::new();
 
         let persistent_state = questions.add(
