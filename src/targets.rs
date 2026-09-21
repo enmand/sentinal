@@ -29,7 +29,7 @@ impl Target {
         match self {
             Target::Path(t) => t.path.display().to_string(),
             Target::PullRequest(t) => {
-                format!("{}-{}/{}#{}", t.provider, t.owner, t.repo, t.pr_number)
+                format!("{}:{}/{}#{}", t.provider, t.owner, t.repo, t.pr_number)
             }
             Target::Other(t) => t.identifier.clone(),
         }
@@ -56,39 +56,45 @@ pub fn parse_target(target: &str) -> Result<Target, TargetError> {
         ));
     }
 
-    Ok(if target.contains("#") && target.contains("/") {
-        let (owner, repo, pr_number): (String, String, u32) = {
-            let parts: Vec<&str> = target.split(&['/', '#'][..]).collect();
-            if parts.len() < 3 {
-                return Err(TargetError::InvalidTarget(format!(
-                    "Invalid pull request target: {}",
-                    target
-                )));
-            }
+    Ok(
+        if target.contains(":") && target.contains("#") && target.contains("/") {
+            let (provider, owner, repo, pr_number): (String, String, String, u32) = {
+                let parts: Vec<&str> = target.split(&[':', '/', '#'][..]).collect();
+                if parts.len() < 4 {
+                    return Err(TargetError::InvalidTarget(format!(
+                        "Invalid pull request target: {}",
+                        target
+                    )));
+                }
 
-            (
-                parts[0].to_string(),
-                parts[1].to_string(),
-                parts[2].parse::<u32>().map_err(|_| {
-                    TargetError::InvalidTarget(format!("Invalid pull request number: {}", parts[2]))
-                })?,
-            )
-        };
+                (
+                    parts[0].to_string(),
+                    parts[1].to_string(),
+                    parts[2].to_string(),
+                    parts[3].parse::<u32>().map_err(|_| {
+                        TargetError::InvalidTarget(format!(
+                            "Invalid pull request number: {}",
+                            parts[2]
+                        ))
+                    })?,
+                )
+            };
 
-        Target::PullRequest(PullRequest {
-            provider: "github".to_string(),
-            owner,
-            repo,
-            pr_number,
-        })
-    } else if std::path::Path::new(target).exists() {
-        Target::Path(Path {
-            path: std::path::PathBuf::from(target),
-            is_file: fs::metadata(target).map(|m| m.is_file()).unwrap_or(false),
-        })
-    } else {
-        Target::Other(Other {
-            identifier: target.to_string(),
-        })
-    })
+            Target::PullRequest(PullRequest {
+                provider,
+                owner,
+                repo,
+                pr_number,
+            })
+        } else if std::path::Path::new(target).exists() {
+            Target::Path(Path {
+                path: std::path::PathBuf::from(target),
+                is_file: fs::metadata(target).map(|m| m.is_file()).unwrap_or(false),
+            })
+        } else {
+            Target::Other(Other {
+                identifier: target.to_string(),
+            })
+        },
+    )
 }
