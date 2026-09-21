@@ -1,3 +1,5 @@
+mod assess;
+mod assessors;
 mod cli;
 mod commands;
 mod github;
