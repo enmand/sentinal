@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use keyring::Entry;
 use kunobi_jev::reqwest::header::ACCEPT;
-use octocrab::{Octocrab, auth::OAuth};
+use octocrab::{Octocrab, auth::OAuth, models::pulls};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use serde_env::from_env_with_prefix;
@@ -105,20 +105,19 @@ impl GithubClient {
         Ok(())
     }
 
-    pub(crate) async fn fetch_pr(&self, pr: &PullRequest) -> Result<(), GithubClientError> {
+    pub(crate) async fn fetch_pr(
+        &self,
+        pr: &PullRequest,
+    ) -> Result<pulls::PullRequest, GithubClientError> {
         // Implement the logic to fetch the pull request details from Github API
         // For now, we will just return a placeholder string
-        let s = self
-            .octocrab
+        self.octocrab
             .as_ref()
             .ok_or(GithubClientError::MissingOctocrab)?
             .pulls(pr.owner.clone(), pr.repo.clone())
             .get(pr.pr_number as u64)
-            .await?;
-
-        clout::info!("Fetched PR details: {:?}", s);
-
-        Ok(())
+            .await
+            .map_err(GithubClientError::OctocrabError)
     }
 }
 
