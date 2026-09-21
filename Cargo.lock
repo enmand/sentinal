@@ -2450,8 +2450,10 @@ dependencies = [
  "secrecy",
  "serde",
  "serde-env",
+ "serde_json",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]
