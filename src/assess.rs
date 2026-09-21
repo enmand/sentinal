@@ -1,11 +1,10 @@
 use crate::{
     assessors::{self, AssessmentError},
-    github::{self, GithubClientError, PullRequestDetails},
+    github::PullRequestDetails,
     targets::PullRequest,
 };
 use kunobi_jev::Entry;
 use serde::Serialize;
-use thiserror::Error;
 
 pub(crate) async fn pull_request(
     assessor: impl assessors::Assessor,
@@ -59,7 +58,7 @@ impl TryFrom<&PullRequestAssessment> for Entry {
         match value {
             PullRequestAssessment::Github(assessment) => {
                 let obj: serde_json::Map<String, serde_json::Value> =
-                    serde_json::to_value(&assessment)?
+                    serde_json::to_value(assessment)?
                         .as_object()
                         .cloned()
                         .unwrap_or_default();

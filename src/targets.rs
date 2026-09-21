@@ -34,13 +34,6 @@ impl Target {
             Target::Other(t) => t.identifier.clone(),
         }
     }
-
-    pub fn as_pull_request(&self) -> Option<&PullRequest> {
-        match self {
-            Target::PullRequest(pr) => Some(pr),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Error)]

@@ -7,7 +7,6 @@ use thiserror::Error;
 use crate::{assess::PullRequestAssessment, assessors::Assessor};
 
 pub(crate) struct Jev {
-    config: JevConfig,
     client: kunobi_jev::Client,
 }
 
@@ -48,7 +47,7 @@ impl Jev {
             kunobi_jev::Client::new()?
         };
 
-        Ok(Self { client, config })
+        Ok(Self { client })
     }
 }
 

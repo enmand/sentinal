@@ -5,9 +5,6 @@ pub(crate) mod jev;
 
 #[derive(Debug, Error)]
 pub enum AssessmentError {
-    #[error("Assessment failed: {0}")]
-    AssessmentFailed(String),
-
     #[error("JEV error: {0}")]
     JevError(#[from] jev::JevError),
 }

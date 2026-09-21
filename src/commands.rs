@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clout::{debug, error, info, success, warn};
+use clout::{debug, warn};
 use std::path::Path;
 
 use crate::{
