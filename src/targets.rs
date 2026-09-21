@@ -2,29 +2,9 @@ use std::{fs, path};
 
 use thiserror::Error;
 
-/// TargetType represents the type of target that can be used in a sentinal assessment.
-pub enum TargetType {
-    Path,
-    PullRequest,
-    Diff,
-    Other,
-}
-
-/// Target represents a target that can be used in a sentinal assessment.
-pub struct Target2 {
-    pub target_type: TargetType,
-    pub identifier: String,
-}
-
-struct Path {
+pub(crate) struct Path {
     pub path: path::PathBuf,
     pub is_file: bool,
-}
-
-impl Target for Path {
-    fn get_identifier(&self) -> String {
-        self.path.display().to_string()
-    }
 }
 
 pub(crate) struct PullRequest {
@@ -34,27 +14,33 @@ pub(crate) struct PullRequest {
     pub pr_number: u32,
 }
 
-impl Target for PullRequest {
-    fn get_identifier(&self) -> String {
-        format!(
-            "{}-{}/{}#{}",
-            self.provider, self.owner, self.repo, self.pr_number
-        )
-    }
-}
-
-struct Other {
+pub(crate) struct Other {
     pub identifier: String,
 }
 
-impl Target for Other {
-    fn get_identifier(&self) -> String {
-        self.identifier.clone()
-    }
+pub enum Target {
+    Path(Path),
+    PullRequest(PullRequest),
+    Other(Other),
 }
 
-pub(crate) trait Target {
-    fn get_identifier(&self) -> String;
+impl Target {
+    pub fn get_identifier(&self) -> String {
+        match self {
+            Target::Path(t) => t.path.display().to_string(),
+            Target::PullRequest(t) => {
+                format!("{}-{}/{}#{}", t.provider, t.owner, t.repo, t.pr_number)
+            }
+            Target::Other(t) => t.identifier.clone(),
+        }
+    }
+
+    pub fn as_pull_request(&self) -> Option<&PullRequest> {
+        match self {
+            Target::PullRequest(pr) => Some(pr),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -63,7 +49,7 @@ pub enum TargetError {
     InvalidTarget(String),
 }
 
-pub fn parse_target(target: &str) -> Result<Box<dyn Target>, TargetError> {
+pub fn parse_target(target: &str) -> Result<Target, TargetError> {
     if target.is_empty() {
         return Err(TargetError::InvalidTarget(
             "Target cannot be empty".to_string(),
@@ -89,20 +75,20 @@ pub fn parse_target(target: &str) -> Result<Box<dyn Target>, TargetError> {
             )
         };
 
-        Box::new(PullRequest {
+        Target::PullRequest(PullRequest {
             provider: "github".to_string(),
             owner,
             repo,
             pr_number,
-        }) as Box<dyn Target>
+        })
     } else if std::path::Path::new(target).exists() {
-        Box::new(Path {
+        Target::Path(Path {
             path: std::path::PathBuf::from(target),
             is_file: fs::metadata(target).map(|m| m.is_file()).unwrap_or(false),
-        }) as Box<dyn Target>
+        })
     } else {
-        Box::new(Other {
+        Target::Other(Other {
             identifier: target.to_string(),
-        }) as Box<dyn Target>
+        })
     })
 }
