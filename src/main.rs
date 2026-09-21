@@ -8,7 +8,8 @@ use clap::Parser;
 
 use cli::{Cli, Command};
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     clout::init()
@@ -20,6 +21,6 @@ fn main() -> Result<()> {
         .expect("clout failed to init");
 
     match cli.command {
-        Command::Assess { target, policy } => commands::assess(&target, policy.as_deref()),
+        Command::Assess { target, policy } => commands::assess(&target, policy.as_deref()).await,
     }
 }
