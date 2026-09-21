@@ -2,7 +2,11 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(name = "sentinel", version, about = "Semantic predicates for software delivery")]
+#[command(
+    name = "sentinel",
+    version,
+    about = "Semantic predicates for software delivery"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
