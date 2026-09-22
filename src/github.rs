@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use http::Uri;
 use keyring::Entry;
 use kunobi_jev::reqwest::header::ACCEPT;
 use octocrab::{
@@ -53,6 +54,9 @@ pub(crate) enum GithubClientError {
     #[error("Keyring error: {0}")]
     KeyringError(#[from] keyring::Error),
 
+    #[error("unable to make request: {0}")]
+    RequestError(#[from] reqwest::Error),
+
     #[error("Unable to serialize auth cache: {0}")]
     CacheSerializeError(#[from] serde_json::Error),
 }
@@ -76,8 +80,8 @@ impl GithubClient {
             (Some(token), None, None) => builder.personal_token(token),
             (None, Some(token), None) => builder.user_access_token(token),
             (None, None, Some(client_id)) => {
-                if let Some(auth) = fetch_cached_github_auth() {
-                    builder.oauth(auth)
+                if let Some((auth, expired)) = fetch_cached_github_auth() {
+                    builder.oauth(self.oauth(&auth, expired).await?)
                 } else {
                     let crab = Octocrab::builder()
                         .base_uri("https://github.com")?
@@ -93,11 +97,11 @@ impl GithubClient {
                     let auth = codes.poll_until_available(&crab, client_id).await?;
                     cache_github_auth(&auth)?;
 
-                    Octocrab::builder().oauth(auth)
+                    Octocrab::builder().oauth(self.oauth(&auth, false).await?)
                 }
             }
             (None, None, None) => {
-                if let Some(auth) = fetch_cached_github_auth() {
+                if let Some((auth, expired)) = fetch_cached_github_auth() {
                     builder.oauth(auth)
                 } else {
                     return Err(GithubClientError::MissingGithubToken);
@@ -144,6 +148,40 @@ impl GithubClient {
         });
 
         Ok((pr_details, files.into_iter().collect()))
+    }
+
+    async fn oauth(&self, auth: &OAuth, expired: bool) -> Result<OAuth, GithubClientError> {
+        if !expired {
+            return Ok(auth.clone());
+        }
+
+        let client = reqwest::Client::new();
+
+        clout::info!("Refreshing expired Github OAuth token...");
+
+        let refreshed = client
+            .post("https://github.com/login/oauth/access_token")
+            .header(ACCEPT, "application/json")
+            .form(&[
+                ("grant_type", "refresh_token"),
+                (
+                    "refresh_token",
+                    auth.refresh_token.as_ref().unwrap().expose_secret(),
+                ),
+                (
+                    "client_id",
+                    self.config.client_id.as_ref().unwrap().expose_secret(),
+                ),
+                ("scope", SCOPES.join(" ").as_str()),
+            ])
+            .send()
+            .await?
+            .json::<OAuth>()
+            .await?;
+
+        cache_github_auth(&refreshed)?;
+
+        Ok(refreshed)
     }
 }
 
@@ -204,7 +242,7 @@ fn cache_github_auth(auth: &OAuth) -> Result<(), GithubClientError> {
     Ok(())
 }
 
-fn fetch_cached_github_auth() -> Option<OAuth> {
+fn fetch_cached_github_auth() -> Option<(OAuth, bool)> {
     let entry = Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).ok()?;
     let secret = entry.get_secret().ok()?;
     let auth = serde_json::from_slice::<CachedAuth>(&secret)
@@ -214,10 +252,11 @@ fn fetch_cached_github_auth() -> Option<OAuth> {
     if let Some(cached) = &auth {
         if cached.expires_in == Some(0) {
             let _ = entry.delete_credential();
-            return None;
+
+            return Some((cached.clone(), true));
         }
 
-        Some(cached.clone())
+        Some((cached.clone(), false))
     } else {
         let _ = entry.delete_credential();
         None

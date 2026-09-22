@@ -8,9 +8,11 @@ anyhow = "1.0.104"
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
 clout = "0.3.0"
+http = "1.5.0"
 keyring = { version = "4.2.0", features = ["apple-native-keyring-store"] }
 kunobi-jev = "0.2.0"
 octocrab = "0.54.2"
+reqwest = { version = "0.13.5", features = ["form", "gzip", "json"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde-env = "0.3.0"
