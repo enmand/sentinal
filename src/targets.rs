@@ -7,6 +7,7 @@ pub(crate) struct Path {
     pub is_file: bool,
 }
 
+#[derive(Debug)]
 pub(crate) struct PullRequest {
     pub provider: String, // todo: enum
     pub owner: String,

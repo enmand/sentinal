@@ -21,13 +21,17 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
             let mut gh = GithubClient::new()?;
             gh.auth().await?;
             let pr_details = gh.fetch_pr(&pr_target).await?;
-            jev.assess(
-                &Artifact::PullRequest(PullRequestAssessment::Github(
-                    (pr_details, pr_target).into(),
-                )),
-                &Query::default(),
-            )
-            .await?;
+
+            let artifact = Artifact::PullRequest(PullRequestAssessment::Github(
+                (pr_details, pr_target).into(),
+            ));
+            let query = Query::default();
+            let assessment = jev.assess(&artifact, &query).await?;
+
+            clout::info!("Assessment complete for {:#?}", assessment.artifact());
+            for (i, verdict) in assessment.verdicts().iter().enumerate() {
+                clout::info!("Verdict {:#?}: {:#?}", i + 1, verdict);
+            }
         }
         Target::Path(path_target) => {
             if path_target.is_file {

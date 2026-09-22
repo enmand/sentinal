@@ -1,12 +1,15 @@
-use kunobi_jev::{Entry, Question, Questions, SystemOneRequest, choice, noul, score};
+use std::collections::BTreeMap;
+
+use kunobi_jev::{
+    AnswerKey, Entry, Question, Questions, SystemOneRequest, SystemOneResult, choice, noul, score,
+};
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_env::from_env_with_prefix;
 use thiserror::Error;
 
 use crate::{
-    assessors::{Artifact, Assessor},
-    queries::{Query, Statement},
+    assessors::{Artifact, Assessment, AssessmentError, Assessor, Verdict},
     queries::{Query, Statement, Value},
 };
 
@@ -56,11 +59,11 @@ impl Jev {
 }
 
 impl Assessor for Jev {
-    async fn assess(
+    async fn assess<'a>(
         &self,
-        artifact: &Artifact,
-        query: &Query,
-    ) -> Result<(), crate::assessors::AssessmentError> {
+        artifact: &'a Artifact,
+        query: &'a Query,
+    ) -> Result<Assessment<'a>, AssessmentError> {
         let entry: Entry = artifact
             .try_into()
             .map_err(JevError::EntryConversionError)?;
@@ -71,9 +74,25 @@ impl Assessor for Jev {
             .await
             .map_err(JevError::ClientError)?;
 
-        clout::info!("JEV response: {:#?}", resp);
+        let assessment = Assessment::from((query, resp, artifact));
 
-        Ok(())
+        Ok(assessment)
+    }
+}
+
+impl<'a> From<(&'a Query, SystemOneResult, &'a Artifact)> for Assessment<'a> {
+    fn from(value: (&'a Query, SystemOneResult, &'a Artifact)) -> Self {
+        let (query, result, artifact) = value;
+        Assessment {
+            artifact,
+            verdicts: BTreeMap::from_iter(
+                result
+                    .answers
+                    .iter()
+                    .zip(query.statements().iter())
+                    .map(|(k, s)| (s.0.clone(), (s.1, k.1.into()))),
+            ),
+        }
     }
 }
 

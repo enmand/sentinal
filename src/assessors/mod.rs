@@ -24,7 +24,11 @@ pub enum Artifact {
 }
 
 pub trait Assessor {
-    async fn assess(&self, artifact: &Artifact, query: &Query) -> Result<(), AssessmentError>;
+    async fn assess<'a>(
+        &self,
+        artifact: &'a Artifact,
+        query: &'a Query,
+    ) -> Result<Assessment<'a>, AssessmentError>;
 }
 
 #[derive(Debug)]
@@ -126,7 +130,17 @@ impl From<&Answer> for Verdict {
 }
 
 #[derive(Debug)]
-pub(crate) struct Assessment<'a> {
+pub struct Assessment<'a> {
     verdicts: BTreeMap<String, (&'a Statement, Verdict)>,
     artifact: &'a Artifact,
+}
+
+impl<'a> Assessment<'a> {
+    pub fn verdicts(&self) -> &BTreeMap<String, (&'a Statement, Verdict)> {
+        &self.verdicts
+    }
+
+    pub fn artifact(&self) -> &'a Artifact {
+        self.artifact
+    }
 }
