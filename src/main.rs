@@ -3,6 +3,7 @@ mod assessors;
 mod cli;
 mod commands;
 mod github;
+mod queries;
 mod targets;
 
 use anyhow::Result;

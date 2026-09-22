@@ -5,6 +5,7 @@ use std::path::Path;
 use crate::{
     assessors::{self, Assessment, Assessor, PullRequestAssessment},
     github::GithubClient,
+    queries::Query,
     targets::{Target, parse_target},
 };
 
@@ -20,15 +21,19 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
             let mut gh = GithubClient::new()?;
             gh.auth().await?;
             let pr_details = gh.fetch_pr(&pr_target).await?;
-            jev.assess(&Assessment::PullRequest(PullRequestAssessment::Github(
-                (pr_details, pr_target).into(),
-            )))
+            jev.assess(
+                &Assessment::PullRequest(PullRequestAssessment::Github(
+                    (pr_details, pr_target).into(),
+                )),
+                &Query::default(),
+            )
             .await?;
         }
         Target::Path(path_target) => {
             if path_target.is_file {
                 let content = tokio::fs::read_to_string(&path_target.path).await?;
-                jev.assess(&Assessment::Diff(content)).await?;
+                jev.assess(&Assessment::Diff(content), &Query::default())
+                    .await?;
             }
 
             warn!(

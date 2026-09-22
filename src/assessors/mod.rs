@@ -1,4 +1,4 @@
-use crate::{github::PullRequestDetails, targets::PullRequest};
+use crate::{github::PullRequestDetails, queries::Query, targets::PullRequest};
 use kunobi_jev::Entry;
 use serde::Serialize;
 use thiserror::Error;
@@ -17,7 +17,7 @@ pub enum Assessment {
 }
 
 pub trait Assessor {
-    async fn assess(&self, pr: &Assessment) -> Result<(), AssessmentError>;
+    async fn assess(&self, artifact: &Assessment, query: &Query) -> Result<(), AssessmentError>;
 }
 
 pub enum PullRequestAssessment {
