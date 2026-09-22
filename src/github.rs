@@ -207,9 +207,21 @@ fn cache_github_auth(auth: &OAuth) -> Result<(), GithubClientError> {
 fn fetch_cached_github_auth() -> Option<OAuth> {
     let entry = Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT).ok()?;
     let secret = entry.get_secret().ok()?;
-    serde_json::from_slice::<CachedAuth>(&secret)
+    let auth = serde_json::from_slice::<CachedAuth>(&secret)
         .ok()
-        .map(CachedAuth::into_oauth)
+        .map(CachedAuth::into_oauth);
+
+    if let Some(cached) = &auth {
+        if cached.expires_in == Some(0) {
+            let _ = entry.delete_credential();
+            return None;
+        }
+
+        Some(cached.clone())
+    } else {
+        let _ = entry.delete_credential();
+        None
+    }
 }
 
 #[cfg(test)]
