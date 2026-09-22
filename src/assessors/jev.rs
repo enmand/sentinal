@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::{
     assessors::{Artifact, Assessor},
     queries::{Query, Statement},
+    queries::{Query, Statement, Value},
 };
 
 pub(crate) struct Jev {
@@ -100,5 +101,43 @@ impl From<&Query> for Questions {
             })
             .map(|(k, v)| (k.clone(), v))
             .collect()
+    }
+}
+
+impl From<&Value> for Entry {
+    fn from(value: &Value) -> Self {
+        match value {
+            Value::Null => Entry::Null,
+            Value::Text(text) => Entry::Text(text.clone()),
+            Value::Object(object) => {
+                let value = serde_json::to_value(object).unwrap_or_default();
+                let map = value.as_object().cloned().unwrap_or_default();
+                Entry::Object(map)
+            }
+            Value::Array(array) => Entry::Array(
+                array
+                    .iter()
+                    .map(serde_json::to_value)
+                    .map(|r| r.unwrap_or_default())
+                    .collect(),
+            ),
+            _ => Entry::Null, // Fallback for unsupported types
+        }
+    }
+}
+
+impl From<Entry> for Value {
+    fn from(entry: Entry) -> Self {
+        match entry {
+            Entry::Null => Value::Null,
+            Entry::Text(text) => Value::Text(text),
+            Entry::Object(object) => Value::Object(
+                object
+                    .into_iter()
+                    .map(|(k, v)| (k, Value::from(v)))
+                    .collect(),
+            ),
+            Entry::Array(array) => Value::Array(array.into_iter().map(Value::from).collect()),
+        }
     }
 }

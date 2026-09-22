@@ -1,5 +1,11 @@
-use crate::{github::PullRequestDetails, queries::Query, targets::PullRequest};
-use kunobi_jev::Entry;
+use std::collections::BTreeMap;
+
+use crate::{
+    github::PullRequestDetails,
+    queries::{Query, Statement, Value},
+    targets::PullRequest,
+};
+use kunobi_jev::{Answer, ChoiceAnswer, Entry, NoulAnswer, ScoreAnswer};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -11,6 +17,7 @@ pub enum AssessmentError {
     JevError(#[from] jev::JevError),
 }
 
+#[derive(Debug)]
 pub enum Artifact {
     PullRequest(PullRequestAssessment),
     Diff(String),
@@ -20,11 +27,12 @@ pub trait Assessor {
     async fn assess(&self, artifact: &Artifact, query: &Query) -> Result<(), AssessmentError>;
 }
 
+#[derive(Debug)]
 pub enum PullRequestAssessment {
     Github(GithubPullRequestAssessment),
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct GithubPullRequestAssessment {
     owner: String,
     repo: String,
@@ -74,4 +82,51 @@ impl TryFrom<&Artifact> for Entry {
             Artifact::Diff(content) => Ok(content.into()),
         }
     }
+}
+
+#[derive(Debug)]
+pub(crate) enum Verdict {
+    Question(f64),
+    Choice(String, f64, Vec<(String, f64)>),
+    Score(f64, f64, BTreeMap<usize, (Value, f64)>),
+    Unknown(Value),
+}
+
+impl From<&Answer> for Verdict {
+    fn from(answer: &Answer) -> Self {
+        match answer {
+            Answer::Noul(NoulAnswer { noul: score }) => Verdict::Question(*score),
+            Answer::Choice(ChoiceAnswer {
+                choice: label,
+                confidence: score,
+                probabilities: choices,
+            }) => {
+                let choices = choices
+                    .iter()
+                    .map(|(label, score)| (label.clone(), *score))
+                    .collect();
+                Verdict::Choice(label.clone(), *score, choices)
+            }
+            Answer::Score(ScoreAnswer {
+                score,
+                confidence,
+                legend,
+                probabilities,
+            }) => {
+                let scores = probabilities
+                    .iter()
+                    .zip(legend.iter())
+                    .map(|(score, label)| (*label.0 as usize, (label.1.clone().into(), *score.1)))
+                    .collect();
+                Verdict::Score(*score, *confidence, scores)
+            }
+            Answer::Unknown(v) => Verdict::Unknown(v.clone().into()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Assessment<'a> {
+    verdicts: BTreeMap<String, (&'a Statement, Verdict)>,
+    artifact: &'a Artifact,
 }
