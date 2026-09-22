@@ -3,7 +3,7 @@ use clout::{debug, warn};
 use std::path::Path;
 
 use crate::{
-    assessors::{self, Assessment, Assessor, PullRequestAssessment},
+    assessors::{self, Artifact, Assessor, PullRequestAssessment},
     github::GithubClient,
     queries::Query,
     targets::{Target, parse_target},
@@ -22,7 +22,7 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
             gh.auth().await?;
             let pr_details = gh.fetch_pr(&pr_target).await?;
             jev.assess(
-                &Assessment::PullRequest(PullRequestAssessment::Github(
+                &Artifact::PullRequest(PullRequestAssessment::Github(
                     (pr_details, pr_target).into(),
                 )),
                 &Query::default(),
@@ -32,7 +32,7 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
         Target::Path(path_target) => {
             if path_target.is_file {
                 let content = tokio::fs::read_to_string(&path_target.path).await?;
-                jev.assess(&Assessment::Diff(content), &Query::default())
+                jev.assess(&Artifact::Diff(content), &Query::default())
                     .await?;
             }
 

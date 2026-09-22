@@ -5,7 +5,7 @@ use serde_env::from_env_with_prefix;
 use thiserror::Error;
 
 use crate::{
-    assessors::{Assessment, Assessor},
+    assessors::{Artifact, Assessor},
     queries::{Query, Statement},
 };
 
@@ -57,7 +57,7 @@ impl Jev {
 impl Assessor for Jev {
     async fn assess(
         &self,
-        artifact: &Assessment,
+        artifact: &Artifact,
         query: &Query,
     ) -> Result<(), crate::assessors::AssessmentError> {
         let entry: Entry = artifact

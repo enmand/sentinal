@@ -11,13 +11,13 @@ pub enum AssessmentError {
     JevError(#[from] jev::JevError),
 }
 
-pub enum Assessment {
+pub enum Artifact {
     PullRequest(PullRequestAssessment),
     Diff(String),
 }
 
 pub trait Assessor {
-    async fn assess(&self, artifact: &Assessment, query: &Query) -> Result<(), AssessmentError>;
+    async fn assess(&self, artifact: &Artifact, query: &Query) -> Result<(), AssessmentError>;
 }
 
 pub enum PullRequestAssessment {
@@ -57,12 +57,12 @@ impl From<(PullRequestDetails, PullRequest)> for GithubPullRequestAssessment {
     }
 }
 
-impl TryFrom<&Assessment> for Entry {
+impl TryFrom<&Artifact> for Entry {
     type Error = serde_json::Error;
 
-    fn try_from(value: &Assessment) -> Result<Self, Self::Error> {
+    fn try_from(value: &Artifact) -> Result<Self, Self::Error> {
         match value {
-            Assessment::PullRequest(PullRequestAssessment::Github(assessment)) => {
+            Artifact::PullRequest(PullRequestAssessment::Github(assessment)) => {
                 let obj: serde_json::Map<String, serde_json::Value> =
                     serde_json::to_value(assessment)?
                         .as_object()
@@ -71,7 +71,7 @@ impl TryFrom<&Assessment> for Entry {
 
                 Ok(Entry::Object(obj))
             }
-            Assessment::Diff(content) => Ok(content.into()),
+            Artifact::Diff(content) => Ok(content.into()),
         }
     }
 }
