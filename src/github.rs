@@ -250,7 +250,7 @@ fn fetch_cached_github_auth() -> Option<(OAuth, bool)> {
         .map(CachedAuth::into_oauth);
 
     if let Some(cached) = &auth {
-        if cached.expires_in == Some(0) {
+        if cached.expires_in <= Some(0) {
             let _ = entry.delete_credential();
 
             return Some((cached.clone(), true));
