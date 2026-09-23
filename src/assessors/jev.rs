@@ -41,7 +41,8 @@ pub enum JevError {
 
 impl Jev {
     pub fn new() -> Result<Self, JevError> {
-        let config: JevConfig = from_env_with_prefix("JEV").map_err(JevError::ConfigLoadError)?;
+        let config: JevConfig =
+            from_env_with_prefix("TYPESAFE").map_err(JevError::ConfigLoadError)?;
 
         if config.api_key.is_none() {
             return Err(JevError::MissingJevApiKey);
