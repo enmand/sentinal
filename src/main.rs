@@ -2,8 +2,10 @@ mod assessors;
 mod cli;
 mod commands;
 mod github;
+mod policy;
 mod queries;
 mod targets;
+mod thresholds;
 mod value;
 
 use anyhow::Result;
@@ -24,6 +26,21 @@ async fn main() -> Result<()> {
         .expect("clout failed to init");
 
     match cli.command {
-        Command::Assess { target, policy } => commands::assess(&target, policy.as_deref()).await,
+        Command::Assess {
+            target,
+            policy,
+            inputs,
+            thresholds,
+            thresholds_file,
+        } => {
+            commands::assess(
+                &target,
+                policy.as_path(),
+                inputs.as_deref(),
+                thresholds.into(),
+                thresholds_file.as_deref(),
+            )
+            .await
+        }
     }
 }

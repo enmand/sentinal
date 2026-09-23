@@ -1,19 +1,49 @@
 use anyhow::Result;
 use clout::{debug, warn};
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use crate::{
     assessors::{self, Artifact, Assessor, PullRequestAssessment},
     github::GithubClient,
+    policy::{Policy, PolicyEngine},
     queries::Query,
     targets::{Target, parse_target},
+    thresholds::Thresholds,
+    value::Value,
 };
 
-pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
+pub async fn assess(
+    target: &str,
+    policy_path: &Path,
+    inputs: Option<&Path>,
+    thresholds: Thresholds,
+    thresholds_file: Option<&Path>,
+) -> Result<()> {
     let target = parse_target(target)?;
 
-    debug!("Assessing target: {}", target.get_identifier());
+    clout::info!("Assessing target: {}", target.get_identifier());
+    clout::info!("Using policy: {}", policy_path.display());
+    clout::debug!("Using thresholds: {:?}", thresholds);
 
+    let policy = tokio::fs::read_to_string(policy_path)
+        .await
+        .expect("Failed to read policy file");
+    let policy_engine = PolicyEngine::new(
+        Policy {
+            name: policy_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            contents: policy,
+        },
+        Some(Value::Object(BTreeMap::from_iter([(
+            "target".to_string(),
+            Value::Text(target.get_identifier()),
+        )]))),
+    )?;
+
+    debug!("Assessing target: {}", target.get_identifier());
     let jev = assessors::jev::Jev::new()?;
 
     match target {
@@ -27,11 +57,10 @@ pub async fn assess(target: &str, policy: Option<&Path>) -> Result<()> {
             ));
             let query = Query::default();
             let assessment = jev.assess(&artifact, &query).await?;
+            let assessment_value: Value = assessment.into();
+            let policy_result = policy_engine.evaluate(assessment_value)?;
 
-            clout::info!("Assessment complete for {:#?}", assessment.artifact());
-            for (i, verdict) in assessment.verdicts().iter().enumerate() {
-                clout::info!("Verdict {:#?}: {:#?}", i + 1, verdict);
-            }
+            clout::info!("Policy evaluation result: {:?}", policy_result);
         }
         Target::Path(path_target) => {
             if path_target.is_file {
