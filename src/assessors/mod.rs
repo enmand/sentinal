@@ -90,7 +90,7 @@ impl TryFrom<&Artifact> for Entry {
 }
 
 #[derive(Debug)]
-pub(crate) enum Verdict {
+pub enum Verdict {
     Question(f64),
     Choice(String, f64, Vec<(String, f64)>),
     Score(f64, f64, BTreeMap<usize, (Value, f64)>),
@@ -143,5 +143,60 @@ impl<'a> Assessment<'a> {
 
     pub fn artifact(&self) -> &'a Artifact {
         self.artifact
+    }
+}
+
+impl<'a> From<Assessment<'a>> for Value {
+    fn from(assessment: Assessment<'a>) -> Self {
+        let verdicts = assessment
+            .verdicts
+            .into_iter()
+            .map(|(key, (statement, verdict))| {
+                let value = match verdict {
+                    Verdict::Question(score) => Value::Number(score),
+                    Verdict::Choice(label, score, choices) => {
+                        let choices_value = Value::Object(
+                            choices
+                                .into_iter()
+                                .map(|(label, score)| (label, Value::Number(score)))
+                                .collect(),
+                        );
+                        let mut obj = BTreeMap::new();
+                        obj.insert("label".to_string(), Value::Text(label));
+                        obj.insert("score".to_string(), Value::Number(score));
+                        obj.insert("choices".to_string(), choices_value);
+                        Value::Object(obj)
+                    }
+                    Verdict::Score(score, confidence, scores) => {
+                        let scores_value = Value::Object(
+                            scores
+                                .into_iter()
+                                .map(|(index, (value, score))| {
+                                    (
+                                        index.to_string(),
+                                        Value::Object(
+                                            [
+                                                ("value".to_string(), value),
+                                                ("score".to_string(), Value::Number(score)),
+                                            ]
+                                            .into_iter()
+                                            .collect(),
+                                        ),
+                                    )
+                                })
+                                .collect(),
+                        );
+                        let mut obj = BTreeMap::new();
+                        obj.insert("score".to_string(), Value::Number(score));
+                        obj.insert("confidence".to_string(), Value::Number(confidence));
+                        obj.insert("scores".to_string(), scores_value);
+                        Value::Object(obj)
+                    }
+                    Verdict::Unknown(value) => value,
+                };
+                (key, value)
+            })
+            .collect();
+        Value::Object(verdicts)
     }
 }
