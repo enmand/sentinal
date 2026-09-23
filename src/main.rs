@@ -4,6 +4,7 @@ mod commands;
 mod github;
 mod queries;
 mod targets;
+mod value;
 
 use anyhow::Result;
 use clap::Parser;

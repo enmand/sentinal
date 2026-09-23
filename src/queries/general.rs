@@ -1,6 +1,5 @@
 use crate::queries::{Query, Statement};
 
-
 pub(super) fn general_queries() -> Query {
     let v= vec![
         (

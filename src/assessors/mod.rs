@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 
 use crate::{
     github::PullRequestDetails,
-    queries::{Query, Statement, Value},
+    queries::{Query, Statement},
     targets::PullRequest,
+    value::Value,
 };
 use kunobi_jev::{Answer, ChoiceAnswer, Entry, NoulAnswer, ScoreAnswer};
 use serde::Serialize;

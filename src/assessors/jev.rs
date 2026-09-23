@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use kunobi_jev::{
-    AnswerKey, Entry, Question, Questions, SystemOneRequest, SystemOneResult, choice, noul, score,
+    Entry, Question, Questions, SystemOneRequest, SystemOneResult, choice, noul, score,
 };
 use secrecy::SecretString;
 use serde::Deserialize;
@@ -9,8 +9,9 @@ use serde_env::from_env_with_prefix;
 use thiserror::Error;
 
 use crate::{
-    assessors::{Artifact, Assessment, AssessmentError, Assessor, Verdict},
-    queries::{Query, Statement, Value},
+    assessors::{Artifact, Assessment, AssessmentError, Assessor},
+    queries::{Query, Statement},
+    value::Value,
 };
 
 pub(crate) struct Jev {
